@@ -1,0 +1,24 @@
+{
+  "name": "playout",
+  "version": "1.0.0",
+  "description": "Create 24/7 live playout channel from HLS VOD.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "keywords": [
+    "hls",
+    "live",
+    "vod",
+    "playout"
+  ],
+  "author": "opensource@drei.com",
+  "license": "MIT",
+  "dependencies": {
+    "m3u8": "0.0.10"
+  },
+  "devDependencies": {
+    "mocha": "^8.1.1"
+  }
+}
