@@ -217,10 +217,8 @@ export default async function HlsPlayout(sources, config = {}) {
       // set discontinuity
       if (segment_id !== last_segment_id + 1) {
         discontinuity = true;
-      }
 
-      // console log new video
-      if (discontinuity) {
+        // console log new video
         let next_segment_id = mod(segment_id + 1, segments_total);
         let next_uri = vod_playlist.items.PlaylistItem[next_segment_id].properties.uri;
         console.log("New video:", next_uri, "Segment ID:", next_segment_id);
