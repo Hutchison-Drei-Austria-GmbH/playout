@@ -69,7 +69,7 @@ Multiple media input can be passed to one channel. They will be sequentially loo
 
 # Usage as module
 
-This program can be used as module in other Node.js projects.
+This program can be used as module in other Node.js (version 14+) projects.
 
 Example:
 ```js
