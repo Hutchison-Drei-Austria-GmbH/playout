@@ -90,6 +90,7 @@ HlsPlayout([
   live_segment_name: "hls_{}.ts",
   live_segment_type: "relative_symlink", // absolute_symlink, relative_symlink, hardlink, copy
   live_segment_missing = "ignore", // skip, fail, ignore
+  live_discontinuity_sequence = false,
 
   debug = false,
 });
@@ -110,6 +111,7 @@ Following configs can be adjusted:
     * `skip` all invalid (this could lead to synchronization inaccuracy),
     * `fail` and stop channel,
     * or `ignore` and include invalid segment in playlist.
+ * `live_discontinuity_sequence` - If `EXT-X-DISCONTINUITY-SEQUENCE` tag should be present in manifest.
  * `debug` - Show extended logs (for debugging or monitoring purposes).
 
 **!!NOTICE!!**
