@@ -134,7 +134,8 @@ export default async function HlsPlayout(sources, config = {}) {
       properties: { uri }
     } of playlist.items.StreamItem) {
       let vod_playlist = await parseM3U8(uri);
-      ref_playlist_push(vod_playlist);
+      // Add only first layer to ref playlist
+      (i == 0) && ref_playlist_push(vod_playlist);
       // TODO: Find proper layer using attributes.
       layers[i++].vod_playlist.merge(vod_playlist);
     }
