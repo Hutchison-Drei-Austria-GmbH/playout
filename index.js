@@ -152,6 +152,8 @@ export default async function HlsPlayout(sources, config = {}) {
   // get starting `start_offset` from sequence `playlist_duration`, that
   // started (or will start) at `start_time` relative to `last_timestamp`
   let start_offset = mod(last_timestamp - start_time, playlist_duration);
+  // get total whole loops, that have been made until now
+  let loops_total = Math.floor((last_timestamp - start_time) / playlist_duration);
   // get first segment ID, that should be played right now
   let segment_offset = 0;
   for (let { segments, duration } of ref_playlists) {
@@ -164,7 +166,7 @@ export default async function HlsPlayout(sources, config = {}) {
   let sync_timestamp = last_timestamp - mod(start_offset, segment_duration * 1000);
 
   // initial media sequence
-  let media_sequence = (Math.floor((last_timestamp - start_time) / playlist_duration) * segments_total) + segment_offset;
+  let media_sequence = (loops_total * segments_total) + segment_offset;
   let media_sequence_segment_offset = 0;
 
   // init live playlists
