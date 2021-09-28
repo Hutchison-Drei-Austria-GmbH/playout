@@ -36,6 +36,7 @@ export default async function HlsPlayout(sources, config = {}) {
     live_segment_name = "hls_{}.ts",
     live_segment_type = "relative_symlink", // absolute_symlink, relative_symlink, hardlink, copy
     live_segment_missing = "ignore", // skip, fail, ignore
+    live_discontinuity_sequence = false,
 
     debug = false,
   } = config;
@@ -58,12 +59,19 @@ export default async function HlsPlayout(sources, config = {}) {
     await mkdir(live_path, true);
   }
 
+  let m3u8_version = 3;
+  // discontinuity sequence was introduced in version 6
+  if (live_discontinuity_sequence) {
+    m3u8_version = 6;
+  }
+
   // save reference playlist metadata for offset counting
   let ref_playlists = [];
   let ref_playlist_push = (playlist) => {
     ref_playlists.push({
       duration: playlistDuration(playlist) * 1000,
-      segments: playlist.items.PlaylistItem.length
+      segments: playlist.items.PlaylistItem.length,
+      discontinuities: playlist.items.PlaylistItem.reduce((count, { properties: { discontinuity }}) => count + discontinuity, 0)
     });
   };
 
@@ -75,7 +83,7 @@ export default async function HlsPlayout(sources, config = {}) {
   // parse layers
   let layers = [];
   if (master_playlist.items.StreamItem.length > 0) {
-    let playlist = createM3U8();
+    let playlist = createM3U8(m3u8_version);
     let index = 0;
     for (let {
       attributes: { attributes },
@@ -87,7 +95,7 @@ export default async function HlsPlayout(sources, config = {}) {
       playlist.addStreamItem({ ...m3u8AttrPolyfill(attributes), uri: layer_playlist_name });
       layers.push({
         vod_playlist: await parseM3U8(uri),
-        live_playlist: createM3U8(),
+        live_playlist: createM3U8(m3u8_version),
         layer_path: path.join(live_path, layer_folder),
         layer_playlist_path: path.join(live_path, layer_playlist_name),
       });
@@ -149,6 +157,10 @@ export default async function HlsPlayout(sources, config = {}) {
   let segments_total = playlist.items.PlaylistItem.length;
   let segment_duration = playlist.properties.targetDuration;
 
+  // total discontinuities for one whole loop
+  // every source in loop means +1 discontinuity
+  let discontinuities_total = ref_playlists.reduce((total, { discontinuities }) => total + discontinuities + 1, 0);
+
   // get starting `start_offset` from sequence `playlist_duration`, that
   // started (or will start) at `start_time` relative to `last_timestamp`
   let start_offset = mod(last_timestamp - start_time, playlist_duration);
@@ -156,11 +168,15 @@ export default async function HlsPlayout(sources, config = {}) {
   let loops_total = Math.floor((last_timestamp - start_time) / playlist_duration);
   // get first segment ID, that should be played right now
   let segment_offset = 0;
-  for (let { segments, duration } of ref_playlists) {
+  // get disconitnuities between loop start and last file
+  let discontinuity_offset = 0;
+  for (let { segments, duration, discontinuities } of ref_playlists) {
     if (start_offset - duration < 0) break;
     start_offset -= duration;
     segment_offset += segments;
+    discontinuity_offset += discontinuities;
   }
+  // TODO: count discontinuities between last file and current position.
   segment_offset += Math.floor(start_offset / segment_duration / 1000);
   // get timestamp at which should have been first segment played
   let sync_timestamp = last_timestamp - mod(start_offset, segment_duration * 1000);
@@ -168,6 +184,9 @@ export default async function HlsPlayout(sources, config = {}) {
   // initial media sequence
   let media_sequence = (loops_total * segments_total) + segment_offset;
   let media_sequence_segment_offset = 0;
+
+  // initial discontinuity sequence
+  let discontinuity_sequence = (loops_total * discontinuities_total) + discontinuity_offset;
 
   // init live playlists
   layers.forEach(async ({ live_playlist, layer_path }) => {
@@ -200,7 +219,7 @@ export default async function HlsPlayout(sources, config = {}) {
   while (true) {
     debug_log("Timestamp    :", last_timestamp, "(sync", last_timestamp - sync_timestamp, "ms)");
     debug_log("Segment id   :", segment_id, "/", segments_total);
-    let duration_ms;
+    let duration_ms, has_disontinuity;
 
     for (const {
       vod_playlist,
@@ -223,6 +242,9 @@ export default async function HlsPlayout(sources, config = {}) {
         let next_uri = vod_playlist.items.PlaylistItem[next_segment_id].properties.uri;
         console.log("New video:", next_uri, "Segment ID:", next_segment_id);
       }
+
+      // set discontinuity for whole segment
+      has_disontinuity = discontinuity;
 
       // handle not existing segments
       if (live_segment_missing != 'ignore' && !existsFile(uri)) {
@@ -282,6 +304,9 @@ export default async function HlsPlayout(sources, config = {}) {
 
         live_playlist.removePlaylistItem(0);
         live_playlist.set('mediaSequence', media_sequence);
+        if (live_discontinuity_sequence) {
+          live_playlist.set('EXT-X-DISCONTINUITY-SEQUENCE', discontinuity_sequence);
+        }
       }
 
       // cleanup stale segments
@@ -299,6 +324,10 @@ export default async function HlsPlayout(sources, config = {}) {
 
     if (media_sequence_segment_offset == live_max_segments - 1) {
       ++media_sequence;
+
+      if (has_disontinuity) {
+        discontinuity_sequence++;
+      }
 
       // wait segment duration
       debug_log("Next segment :", sync_timestamp + duration_ms);

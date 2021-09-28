@@ -5,6 +5,7 @@ const live_segment_type = process.env.CH_LIVE_SEGMENT_TYPE ?? 'relative_symlink'
 const start_time = process.env.CH_START_TIME ?? 'now'
 const sources = process.env.CH_SOURCES.split(/\s+/).filter(Boolean)
 const debug = process.env.CH_DEBUG == 'true'
+const live_discontinuity_sequence = process.env.CH_LIVE_DISCONTINUTIY_SEQUENCE == 'true'
 
 HlsPlayout(sources, {
   start_time: new Date(start_time),
@@ -16,6 +17,7 @@ HlsPlayout(sources, {
   live_layer_folder: 'hls{}',
   live_segment_name: 'hls_{}.ts',
   live_segment_type,
+  live_discontinuity_sequence,
 
   debug,
 }).catch(console.error);

@@ -22,9 +22,9 @@ export function parseM3U8(file_path) {
   });
 }
 
-export function createM3U8() {
+export function createM3U8(version = 3) {
   let playlist = m3u8.M3U.create();
-  playlist.set('version', 3);
+  playlist.set('version', version);
   return playlist;
 }
 
