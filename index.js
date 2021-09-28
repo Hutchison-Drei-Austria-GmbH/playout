@@ -59,6 +59,12 @@ export default async function HlsPlayout(sources, config = {}) {
     await mkdir(live_path, true);
   }
 
+  let m3u8_version = 3;
+  // discontinuity sequence was introduced in version 6
+  if (live_discontinuity_sequence) {
+    m3u8_version = 6;
+  }
+
   // save reference playlist metadata for offset counting
   let ref_playlists = [];
   let ref_playlist_push = (playlist) => {
@@ -77,7 +83,7 @@ export default async function HlsPlayout(sources, config = {}) {
   // parse layers
   let layers = [];
   if (master_playlist.items.StreamItem.length > 0) {
-    let playlist = createM3U8();
+    let playlist = createM3U8(m3u8_version);
     let index = 0;
     for (let {
       attributes: { attributes },
@@ -89,7 +95,7 @@ export default async function HlsPlayout(sources, config = {}) {
       playlist.addStreamItem({ ...m3u8AttrPolyfill(attributes), uri: layer_playlist_name });
       layers.push({
         vod_playlist: await parseM3U8(uri),
-        live_playlist: createM3U8(),
+        live_playlist: createM3U8(m3u8_version),
         layer_path: path.join(live_path, layer_folder),
         layer_playlist_path: path.join(live_path, layer_playlist_name),
       });
