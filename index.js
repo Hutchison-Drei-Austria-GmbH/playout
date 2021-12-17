@@ -243,9 +243,6 @@ export default async function HlsPlayout(sources, config = {}) {
         console.log("New video:", next_uri, "Segment ID:", next_segment_id);
       }
 
-      // set discontinuity for whole segment
-      has_disontinuity = discontinuity;
-
       // handle not existing segments
       if (live_segment_missing != 'ignore' && !existsFile(uri)) {
         console.error("Segment `" + uri + "` not found!");
@@ -302,6 +299,12 @@ export default async function HlsPlayout(sources, config = {}) {
         let segment_path = path.join(layer_path, segment_name);
         live_stale_segments.push(segment_path);
 
+        // check if first segment has discontinuity
+        if (live_playlist.items.PlaylistItem[0].properties.discontinuity && !has_disontinuity) {
+          discontinuity_sequence++;
+          has_disontinuity = true;
+        }
+
         live_playlist.removePlaylistItem(0);
         live_playlist.set('mediaSequence', media_sequence);
         if (live_discontinuity_sequence) {
@@ -324,10 +327,6 @@ export default async function HlsPlayout(sources, config = {}) {
 
     if (media_sequence_segment_offset == live_max_segments - 1) {
       ++media_sequence;
-
-      if (has_disontinuity) {
-        discontinuity_sequence++;
-      }
 
       // wait segment duration
       debug_log("Next segment :", sync_timestamp + duration_ms);
