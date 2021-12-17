@@ -219,9 +219,7 @@ export default async function HlsPlayout(sources, config = {}) {
   while (true) {
     debug_log("Timestamp    :", last_timestamp, "(sync", last_timestamp - sync_timestamp, "ms)");
     debug_log("Segment id   :", segment_id, "/", segments_total);
-    let duration_ms;
-    // TODO: Refactor.
-    let first_layer = true;
+    let duration_ms, has_disontinuity;
 
     for (const {
       vod_playlist,
@@ -244,6 +242,9 @@ export default async function HlsPlayout(sources, config = {}) {
         let next_uri = vod_playlist.items.PlaylistItem[next_segment_id].properties.uri;
         console.log("New video:", next_uri, "Segment ID:", next_segment_id);
       }
+
+      // set discontinuity for whole segment
+      has_disontinuity = discontinuity;
 
       // handle not existing segments
       if (live_segment_missing != 'ignore' && !existsFile(uri)) {
@@ -301,16 +302,7 @@ export default async function HlsPlayout(sources, config = {}) {
         let segment_path = path.join(layer_path, segment_name);
         live_stale_segments.push(segment_path);
 
-        // check if previous segment had discontinuity
         live_playlist.removePlaylistItem(0);
-        if (live_playlist.items.PlaylistItem[0].properties.discontinuity) {
-          live_playlist.items.PlaylistItem[0].properties.discontinuity = false
-          if (first_layer) {
-            discontinuity_sequence++;
-            first_layer = false;
-          }
-        }
-
         live_playlist.set('mediaSequence', media_sequence);
         if (live_discontinuity_sequence) {
           live_playlist.set('EXT-X-DISCONTINUITY-SEQUENCE', discontinuity_sequence);
@@ -332,6 +324,10 @@ export default async function HlsPlayout(sources, config = {}) {
 
     if (media_sequence_segment_offset == live_max_segments - 1) {
       ++media_sequence;
+
+      if (has_disontinuity) {
+        discontinuity_sequence++;
+      }
 
       // wait segment duration
       debug_log("Next segment :", sync_timestamp + duration_ms);
